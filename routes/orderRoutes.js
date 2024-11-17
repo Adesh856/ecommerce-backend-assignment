@@ -7,14 +7,10 @@ const auth = require("../middlewares/auth");
 orderRouter.post("/:cartId", orderController.createOrder);
 orderRouter.get("/", orderController.getOrders);
 orderRouter.get("/:id", orderController.getOrderById);
-orderRouter.put(
-  "/:id",
-  roleBasedAuth(["admin", "seller"]),
-  orderController.updateOrder
-);
+orderRouter.put("/:id", roleBasedAuth(["admin"]), orderController.updateOrder);
 orderRouter.delete(
   "/:id",
-  roleBasedAuth(["admin", "seller"]),
+  roleBasedAuth(["admin"]),
   orderController.deleteOrder
 );
 

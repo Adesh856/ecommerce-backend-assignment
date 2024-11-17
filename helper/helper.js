@@ -1,5 +1,5 @@
 const multer = require("multer");
-const s3Service = require("./aws/s3Service");
+const s3Service = require("../services/aws/s3Service");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const config = require("../config/config");

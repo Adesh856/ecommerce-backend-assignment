@@ -1,6 +1,6 @@
 const logger = require("../helper/logger");
 const ProductImages = require("../models/productImage");
-const s3Service = require("../helper/aws/s3Service");
+const s3Service = require("../services/aws/s3Service");
 const { uploadProductImages } = require("../helper/helper");
 const mongoose = require("mongoose");
 const Product = require("../models/product");
