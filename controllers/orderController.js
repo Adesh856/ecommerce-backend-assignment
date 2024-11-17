@@ -1,15 +1,23 @@
 const { default: mongoose } = require("mongoose");
 const logger = require("../helper/logger");
 const Order = require("../models/order");
+const { Cart } = require("../models/cart");
 
 class OrderController {
   async createOrder(req, res) {
     const { cartId } = req.params;
     try {
+      const cart = await Cart.findById(cartId);
+      if (!cart) {
+        logger.warn("Cart not found", { id: cartId });
+        return res.status(404).json({ message: "Cart not found" });
+      }
+      const totalAmount = cart.totalPrice;
       const order = new Order({
         ...req.body,
         userId: req.userId,
         cartId,
+        totalAmount,
       });
       await order.save();
 

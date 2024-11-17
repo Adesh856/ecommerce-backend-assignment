@@ -8,7 +8,13 @@ class CartController {
     const { userId } = req;
 
     try {
-      let cart = await Cart.findOne({ userId }).populate("items");
+      let cart = await Cart.findOne({ userId }).populate({
+        path: "items",
+        populate: {
+          path: "productId",
+          model: "Product",
+        },
+      });
 
       if (!cart) {
         return res.status(200).json({
@@ -34,6 +40,12 @@ class CartController {
     const { productId, quantity } = req.body;
 
     try {
+      const isOwnProduct = await Product.findOne({ _id: productId, userId });
+      if (isOwnProduct) {
+        return res
+          .status(400)
+          .json({ message: "You cannot add your own product" });
+      }
       const product = await Product.findById(productId);
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
@@ -45,9 +57,10 @@ class CartController {
         cart = new Cart({ userId, items: [], totalPrice: 0 });
       }
 
-      const isInCart = cart.items.find(
-        (ItemProductId) => ItemProductId.toString() === productId
-      );
+      const isInCart = await CartItem.findOne({
+        productId: new mongoose.Types.ObjectId(productId),
+        userId,
+      });
       if (isInCart) {
         return res
           .status(400)
@@ -57,12 +70,11 @@ class CartController {
       const cartItem = new CartItem({
         productId,
         quantity,
+        userId,
         price: itemPrice,
       });
-
-      cart.items.push(
-        cartItem.map((item) => mongoose.Types.ObjectId(item._id))
-      );
+      await cartItem.save();
+      cart.items.push(cartItem._id);
 
       cart.totalPrice = itemPrice + cart.totalPrice;
 
@@ -93,7 +105,11 @@ class CartController {
         return res.status(404).json({ message: "Cart not found" });
       }
 
-      const cartItem = await CartItem.findOne({ productId, userId });
+      const cartItem = await CartItem.findOne({
+        productId: new mongoose.Types.ObjectId(productId),
+        userId,
+      });
+
       if (!cartItem) {
         return res.status(404).json({ message: "Cart item not found" });
       }
@@ -132,22 +148,25 @@ class CartController {
         return res.status(404).json({ message: "Cart not found" });
       }
       const cartItem = await CartItem.findOne({ productId, userId });
+
       if (!cartItem) {
         return res.status(404).json({ message: "Cart item not found" });
       }
 
       cart.totalPrice -= cartItem.price;
-      cart.items = cart.items.filter(
-        (ItemProductId) => ItemProductId !== productId
-      );
+      cart.items = cart.items.filter((item) => item !== cartItem._id);
 
       await cart.save();
 
       await CartItem.findByIdAndDelete(cartItem._id);
-
+      let message = "Product removed from cart successfully";
+      if (cart.items.length === 1) {
+        await Cart.findByIdAndDelete(cart._id);
+        message =
+          "Product removed from cart and Cart is empty. Please add product to cart";
+      }
       return res.status(200).json({
-        message: "Product removed from cart successfully",
-        cart,
+        message: message,
       });
     } catch (error) {
       logger.error("Failed to remove product from cart", {

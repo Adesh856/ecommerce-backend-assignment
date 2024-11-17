@@ -1,7 +1,6 @@
 const roleBasedAuth = (allowedRoles) => async (req, res, next) => {
   try {
     if (!allowedRoles.includes(req.user.role)) {
-      console.log("came Inside");
       return res.status(403).json({ message: "Access denied" });
     }
     next();

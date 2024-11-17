@@ -12,10 +12,6 @@ const orderSchema = mongoose.Schema(
       ref: "Cart",
       required: true,
     },
-    orderAt: {
-      type: Date,
-      default: Date.now,
-    },
     status: {
       type: String,
       enum: ["Pending", "Confirmed", "Shipped", "Delivered", "Cancelled"],

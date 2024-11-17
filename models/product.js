@@ -26,7 +26,6 @@ const productSchema = mongoose.Schema(
     stock: { type: Number, default: 0 },
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date },
-    images: { type: [String] },
     createdAt: { type: Date, default: Date.now },
   },
   {

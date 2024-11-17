@@ -6,7 +6,7 @@ const config = require("../config/config");
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-async function uploadProductImages(images) {
+async function uploadProductImages(images, product, userId) {
   if (!images || !images.length) return [];
 
   const imageUrls = await Promise.all(
@@ -16,6 +16,7 @@ async function uploadProductImages(images) {
   return imageUrls.map((url) => ({
     url,
     productId: product._id,
+    userId,
   }));
 }
 

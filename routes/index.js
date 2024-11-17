@@ -6,7 +6,7 @@ router.use("/auth", require("./authRoutes"));
 router.use(auth);
 router.use("/users", require("./userRoutes"));
 router.use("/products", require("./productRoutes"));
-router.use("/carts", require("./cartRoutes"));
+router.use("/cart", require("./cartRoutes"));
 router.use("/orders", require("./orderRoutes"));
 
 module.exports = router;

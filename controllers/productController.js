@@ -1,33 +1,37 @@
-const Product = require("../models/product");
 const logger = require("../helper/logger");
 const ProductImages = require("../models/productImage");
 const s3Service = require("../helper/aws/s3Service");
 const { uploadProductImages } = require("../helper/helper");
 const mongoose = require("mongoose");
-
+const Product = require("../models/product");
 class ProductController {
   async createProduct(req, res) {
     const { body: payload, files, userId } = req;
 
     const uploadedImages = files?.images;
-
+    let productId = null;
     try {
       const product = new Product({
         ...payload,
         userId,
       });
       await product.save();
-
-      const productImages = await uploadProductImages(uploadedImages);
+      productId = product._id;
+      const productImages = await uploadProductImages(
+        uploadedImages,
+        product,
+        userId
+      );
       if (productImages.length) {
         await ProductImages.insertMany(productImages);
       }
-
+      const images = productImages.map((image) => image.url);
       return res.status(201).json({
         message: "Product created successfully",
-        product,
+        product: { ...product.toObject(), images },
       });
     } catch (error) {
+      if (productId) await Product.findByIdAndDelete(productId);
       logger.error("Failed to create product", { error: error.message });
 
       return res.status(500).json({
@@ -91,7 +95,7 @@ class ProductController {
       const product = await Product.aggregate([
         {
           $match: {
-            _id: mongoose.Types.ObjectId(req.params.id),
+            _id: new mongoose.Types.ObjectId(req.params.id),
             userId,
           },
         },
@@ -123,14 +127,18 @@ class ProductController {
 
   async updateProduct(req, res) {
     const productId = req.params.id;
-    const {
+    let {
       body: { deleteProductImageIds, ...payload },
       files: { images },
       userId,
     } = req;
     try {
+      deleteProductImageIds = Array.isArray(deleteProductImageIds)
+        ? deleteProductImageIds.map((id) => new mongoose.Types.ObjectId(id))
+        : [new mongoose.Types.ObjectId(deleteProductImageIds)];
+
       const product = await Product.findOne({
-        _id: productId,
+        _id: new mongoose.Types.ObjectId(productId),
         userId,
       });
 
@@ -143,11 +151,6 @@ class ProductController {
           .json({ message: "Product not found or unauthorized" });
       }
 
-      await product.updateOne(payload, {
-        new: true,
-        runValidators: true,
-      });
-
       if (deleteProductImageIds?.length) {
         const imagesToDelete = await ProductImages.find({
           _id: { $in: deleteProductImageIds },
@@ -156,23 +159,33 @@ class ProductController {
 
         const imageUrls = imagesToDelete.map((img) => img.url);
         await s3Service.deleteImages(imageUrls);
-        await ProductImages.deleteMany({ _id: { $in: deleteProductImageIds } });
+        const imagedelete = await ProductImages.deleteMany({
+          _id: { $in: deleteProductImageIds },
+        });
       }
 
       if (images?.length) {
-        const uploadedImages = await uploadProductImages(images);
-
-        const productImages = uploadedImages.map((url) => ({
-          url,
-          productId,
-        }));
-
-        await ProductImages.insertMany(productImages);
+        const uploadedImages = await uploadProductImages(
+          images,
+          product,
+          userId
+        );
+        await ProductImages.insertMany(uploadedImages);
       }
+      const userUpdatedImages = (await ProductImages.find({ productId })).map(
+        (image) => image._id
+      );
+      const updatedProduct = await product.updateOne(
+        { ...payload, images: userUpdatedImages },
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
 
       return res.status(200).json({
         message: "Product updated successfully",
-        product,
+        updatedProduct,
       });
     } catch (error) {
       logger.error("Failed to update product", { error: error.message });
@@ -190,10 +203,21 @@ class ProductController {
         _id: req.params.id,
         userId,
       });
+      const getProductImageIds = await ProductImages.find({
+        productId: product._id,
+        userId,
+      });
+      if (getProductImageIds.length) {
+        const imageUrls = getProductImageIds.map((img) => img.url);
+        await s3Service.deleteImages(imageUrls);
+        await ProductImages.deleteMany({ productId: product._id });
+      }
+
       if (!product) {
         logger.warn("Product not found for deletion", { id: params.id });
         return res.status(404).json({ message: "Product not found" });
       }
+
       return res.status(200).json({ message: "Product deleted successfully" });
     } catch (error) {
       logger.error("Failed to delete product", { error: error.message });

@@ -3,7 +3,6 @@ const logger = require("../helper/logger");
 
 class UserController {
   async getUsers(req, res) {
-    console.log("inside");
     try {
       const { search, role } = req.query;
 
